@@ -9,12 +9,19 @@
 import UIKit
 import GameplayKit
 
-class ViewController: UIViewController {
+enum GameMode {
+    case singleplayer
+    case multiplayer
+    case online
+}
+
+class GameViewController: UIViewController {
 
     @IBOutlet var columnButtons: [UIButton]!
     
     var placedChips = [[UIView]]()
     var board: Board!
+    var gameMode: GameMode = .singleplayer
     
     var strategist: GKMinmaxStrategist!
     
@@ -27,16 +34,22 @@ class ViewController: UIViewController {
         
         columnButtons = columnButtons.sorted { $0.tag < $1.tag }
         
-        strategist = GKMinmaxStrategist()
-        strategist.maxLookAheadDepth = 7
-        strategist.randomSource = nil
-        
+        switch gameMode {
+        case .singleplayer: setupAI()
+        case .multiplayer: break
+        default: let ac = UIAlertController(title: "In next version!", message: nil, preferredStyle: .alert)
+        ac.addAction(UIAlertAction(title: "Ok", style: .cancel, handler: { action in
+            self.navigationController?.popViewController(animated: true)
+        }))
+        present(ac, animated: true)
+        }
+                
         resetBoard()
     }
     
     func resetBoard() {
         board = Board()
-        strategist.gameModel = board
+        strategist?.gameModel = board
         
         updateUI()
         
@@ -49,10 +62,16 @@ class ViewController: UIViewController {
         }
     }
     
+    func setupAI() {
+        strategist = GKMinmaxStrategist()
+        strategist.maxLookAheadDepth = 7
+        strategist.randomSource = nil
+    }
+    
     func updateUI() {
         title = "\(board.currentPlayer.name)'s Turn"
         
-        if board.currentPlayer.chip == .black {
+        if gameMode == .singleplayer && board.currentPlayer.chip == .black {
             startAIMove()
         }
     }
@@ -67,7 +86,7 @@ class ViewController: UIViewController {
     
     func makeAIMove(inColumn column: Int) {
         columnButtons.forEach { $0.isEnabled = true }
-        navigationItem.leftBarButtonItem = nil
+        navigationItem.rightBarButtonItem = nil
         
         if let row = board.nextEmptySlot(inColumn: column) {
             board.add(chip: board.currentPlayer.chip, inColumn: column)
@@ -83,7 +102,7 @@ class ViewController: UIViewController {
         let spinner = UIActivityIndicatorView(activityIndicatorStyle: .gray)
         spinner.startAnimating()
         
-        navigationItem.leftBarButtonItem = UIBarButtonItem(customView: spinner)
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: spinner)
         
         DispatchQueue.global().async { [unowned self] in
             let strategistTime = CFAbsoluteTimeGetCurrent()
@@ -102,7 +121,7 @@ class ViewController: UIViewController {
     func continueGame() {
         var gameOverTitle: String? = nil
         
-        if board.isWin(forPlayer: board.currentPlayer) {
+        if board.isWin(for: board.currentPlayer) {
             gameOverTitle = "\(board.currentPlayer.name) Wins!"
         } else if board.isFull() {
             gameOverTitle = "Draw!"
@@ -152,7 +171,7 @@ class ViewController: UIViewController {
         let size = min(button.frame.width, button.frame.height / 6)
         
         let xOffset = button.frame.midX
-        var yOffset = button.frame.maxY - size / 2
+        var yOffset = view.frame.maxY - size / 2
         yOffset -= size * CGFloat(row)
         return CGPoint(x: xOffset, y: yOffset)
     }

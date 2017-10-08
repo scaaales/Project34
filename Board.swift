@@ -33,7 +33,7 @@ class Board: NSObject, GKGameModel {
     
     func gameModelUpdates(for player: GKGameModelPlayer) -> [GKGameModelUpdate]? {
         if let playerObject = player as? Player {
-            if isWin(forPlayer: playerObject) || isWin(forPlayer: playerObject.opponent) {
+            if isWin(for: playerObject) || isWin(for: playerObject.opponent) {
                 return nil
             }
             
@@ -60,9 +60,9 @@ class Board: NSObject, GKGameModel {
     
     func score(for player: GKGameModelPlayer) -> Int {
         if let playerObject = player as? Player {
-            if isWin(forPlayer: playerObject) {
+            if isWin(for: playerObject) {
                 return 1000
-            } else if isWin(forPlayer: playerObject.opponent) {
+            } else if isWin(for: playerObject.opponent) {
                 return -1000
             }
         }
@@ -103,7 +103,7 @@ class Board: NSObject, GKGameModel {
         return true
     }
     
-    func isWin(forPlayer player: GKGameModelPlayer) -> Bool {
+    func isWin(for player: GKGameModelPlayer) -> Bool {
         let chip = (player as! Player).chip
         
         for row in 0 ..< Board.height {
