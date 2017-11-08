@@ -25,6 +25,10 @@ class GameViewController: UIViewController {
     
     var strategist: GKMinmaxStrategist!
     
+    var socketIOManager: SocketIOManager!
+    
+    var playerColor = "Red"
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -32,26 +36,24 @@ class GameViewController: UIViewController {
             placedChips.append([UIView]())
         }
         
-        columnButtons = columnButtons.sorted { $0.tag < $1.tag }
-        
         switch gameMode {
-        case .singleplayer: setupAI()
-        case .multiplayer: break
-        default: let ac = UIAlertController(title: "In next version!", message: nil, preferredStyle: .alert)
-        ac.addAction(UIAlertAction(title: "Ok", style: .cancel, handler: { action in
-            self.navigationController?.popViewController(animated: true)
-        }))
-        present(ac, animated: true)
+        case .singleplayer:
+            setupAI()
+            resetBoard()
+            updateUI()
+        case .multiplayer:
+            resetBoard()
+            updateUI()
+        case .online:
+            resetBoard()
+            setupOnline()
         }
-                
-        resetBoard()
+        
     }
     
     func resetBoard() {
         board = Board()
         strategist?.gameModel = board
-        
-        updateUI()
         
         for i in 0 ..< placedChips.count {
             for chip in placedChips[i] {
@@ -85,7 +87,7 @@ class GameViewController: UIViewController {
     }
     
     func makeAIMove(inColumn column: Int) {
-        columnButtons.forEach { $0.isEnabled = true }
+        enableMoves()
         navigationItem.rightBarButtonItem = nil
         
         if let row = board.nextEmptySlot(inColumn: column) {
@@ -96,8 +98,17 @@ class GameViewController: UIViewController {
         }
     }
     
-    func startAIMove() {
+    func disableMoves() {
         columnButtons.forEach { $0.isEnabled = false }
+
+    }
+    
+    func enableMoves() {
+        columnButtons.forEach { $0.isEnabled = true }
+    }
+    
+    func startAIMove() {
+        disableMoves()
         
         let spinner = UIActivityIndicatorView(activityIndicatorStyle: .gray)
         spinner.startAnimating()
@@ -128,8 +139,17 @@ class GameViewController: UIViewController {
         }
         
         if gameOverTitle != nil {
+            if gameMode == .online {
+                socketIOManager?.exitGame()
+                socketIOManager.delegate = nil
+            }
+            
             let alert = UIAlertController(title: gameOverTitle, message: nil, preferredStyle: .alert)
             let alertAction = UIAlertAction(title: "Play Again", style: .default, handler: { [unowned self] action in
+                if self.gameMode == .online {
+                    self.setupOnline()
+                    SocketIOManager.sharedInstance.connectUser()
+                }
                 self.resetBoard()
             })
             
@@ -182,11 +202,70 @@ class GameViewController: UIViewController {
         if let row = board.nextEmptySlot(inColumn: column) {
             board.add(chip: board.currentPlayer.chip, inColumn: column)
             addChip(inColumn: column, andRow: row, color: board.currentPlayer.color)
+            
+            if gameMode == .online {
+                socketIOManager?.sendMove(column: column)
+                disableMoves()
+            }
+            
             continueGame()
         }
         
     }
     
 
+}
+
+// online
+extension GameViewController: GameDelegate {
+    
+    func setupOnline() {
+        socketIOManager = SocketIOManager.sharedInstance
+        socketIOManager.delegate = self
+        disableMoves()
+    }
+    
+    func getMove(column: Int) {
+        if let row = board.nextEmptySlot(inColumn: column) {
+            enableMoves()
+            
+            board.add(chip: board.currentPlayer.chip, inColumn: column)
+            addChip(inColumn: column, andRow: row, color: board.currentPlayer.color)
+            
+            continueGame()
+        }
+    }
+    
+    func firstPlayerConnect() {
+        resetBoard()
+        title = "Waiting for the oponnent"
+        navigationItem.rightBarButtonItem = nil
+    }
+    
+    func gameStart(colorString: String) {
+        playerColor = colorString.capitalized
+        showPlayerColor()
+        if colorString == "red" {
+            enableMoves()
+        }
+        updateUI()
+    }
+    
+    func showPlayerColor() {
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "\(playerColor)", style: .plain, target: nil, action: nil)
+        if playerColor == "Red" {
+            navigationItem.rightBarButtonItem?.tintColor = board.currentPlayer.color
+        } else {
+            navigationItem.rightBarButtonItem?.tintColor = board.currentPlayer.opponent.color
+
+        }
+    }
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        if gameMode == .online {
+            socketIOManager?.exitGame()
+        }
+    }
+    
 }
 

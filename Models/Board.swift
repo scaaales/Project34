@@ -13,6 +13,14 @@ enum ChipColor: Int {
     case none = 0
     case red
     case black
+    
+    init(colorString: String) {
+        switch colorString.lowercased() {
+        case "red": self = .red
+        case "black": self = .black
+        default: self = .none
+        }
+    }
 }
 
 class Board: NSObject, GKGameModel {
@@ -83,8 +91,12 @@ class Board: NSObject, GKGameModel {
     
     var currentPlayer: Player
     
-    override init() {
-        currentPlayer = Player.allPlayers[0]
+    override convenience init() {
+        self.init(withPlayerColor: "red")
+    }
+    
+    init(withPlayerColor color: String) {
+        currentPlayer = Player(chip: .init(colorString: color))
         
         for _ in 0 ..< Board.width * Board.height {
             slots.append(.none)
@@ -92,6 +104,8 @@ class Board: NSObject, GKGameModel {
         
         super.init()
     }
+    
+    
     
     func isFull() -> Bool {
         for column in 0 ..< Board.width {

@@ -9,14 +9,31 @@
 import UIKit
 
 class InitialViewController: UIViewController {
-
+    
+    @IBOutlet weak var onlineButton: UIButton!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
         title = "Select game mode"
+        
+        SocketIOManager.sharedInstance.connectionStatusChanged(toConnected: {
+            self.onlineButton.titleLabel?.font = UIFont.systemFont(ofSize: 25, weight: UIFont.Weight.regular)
+        }) {
+            self.onlineButton.titleLabel?.font = UIFont.systemFont(ofSize: 25, weight: UIFont.Weight.thin)
+        }
     }
     
-
+    func checkServerStatus() {
+        if !SocketIOManager.sharedInstance.isConnected {
+            let ac = UIAlertController(title: "Server is down", message: "Try again later.", preferredStyle: .alert)
+            ac.addAction(UIAlertAction(title: "Ok", style: .cancel, handler: nil))
+            present(ac, animated: true)
+        } else {
+            SocketIOManager.sharedInstance.delegate = GameViewController.self as? GameDelegate
+            SocketIOManager.sharedInstance.connectUser()
+        }
+    }
     
     // MARK: - Navigation
 
@@ -33,10 +50,10 @@ class InitialViewController: UIViewController {
                     print("multiplayer")
                 default: vc.gameMode = .online // third button
                     print("online")
+                    checkServerStatus()
                 }
             }
         }
     }
- 
 
 }
